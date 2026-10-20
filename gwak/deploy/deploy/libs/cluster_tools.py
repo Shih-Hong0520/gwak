@@ -30,20 +30,15 @@ def write_bash_file(
 
     with bash_file.open("w") as sh_file:
 
-        sh_file.write("#!/bin/bash\n\n")
-        sh_file.write("echo $HDF5_USE_FILE_LOCKING\n")
+        sh_file.write("#!/bin/bash\n")
+        sh_file.write("set -euo pipefail\n\n")
         sh_file.write("export HDF5_USE_FILE_LOCKING=FALSE\n")
-        sh_file.write("echo HDF5_USE_FILE_LOCKING status: $HDF5_USE_FILE_LOCKING\n")
         for file in files:
-            sh_file.write(f"cp {file} $_CONDOR_SCRATCH_DIR\n")
+            sh_file.write(f'cp "{file}" "$_CONDOR_SCRATCH_DIR/"\n')
 
-        sh_file.write("echo ' '\n")
-        sh_file.write("echo Files under $_CONDOR_SCRATCH_DIR\n")
-        sh_file.write("ls $_CONDOR_SCRATCH_DIR\n")
-        sh_file.write("echo ' '\n")
-        sh_file.write(f"source {gwak_env}\n")
-        sh_file.write(f"source {deploy_env}\n")
-        sh_file.write(f"{command}\n")
+        sh_file.write(f'source "{gwak_env}"\n')
+        sh_file.write(f'source "{deploy_env}"\n')
+        sh_file.write(f"exec {command}\n")
     bash_file.chmod(0o755)
     return bash_file
 
@@ -81,28 +76,26 @@ def write_condor_config(
     executable,
     config
 ):
-    
+
     condor_config = {}
     submit_file = job_dir / "condor.sub"
     job_out = job_dir / "job.out"
     job_out.touch()
-    
-    condor_config["universe"] = "vanilla" #"local"
+
+    condor_config["universe"] = "vanilla"
     condor_config["executable"] = executable
 
     condor_config["log"] = job_dir / "job.log"
     condor_config["output"] = job_out
     condor_config["error"] = job_dir / "job.err"
 
-    # condor_config["getenv"] = True
     for key in condor_kwargs.keys():
-
         condor_config[key] = condor_kwargs[key]
 
     with open(submit_file, "w") as f:
         for key, value in condor_config.items():
             f.write(f"{key} = {value}\n")
-        
+
         f.write("queue")
 
     return submit_file
@@ -126,7 +119,7 @@ def write_slurm_config(
         # f"--project {project} "
         # f"--output_dir {job_dir}/export"
     )
-    
+
     infer_cmd = (
         f"{kwargs['deploy_cmd']['infer'][0]} "
         f"--config {infer_config}"
@@ -137,7 +130,7 @@ def write_slurm_config(
     if kwargs["gpu_card"] is not None:
         kwargs["gres"] = f"gpu:{kwargs['gpu_card']}:{kwargs['gpu_per_node']}"
 
-    
+
     config_content = ["#!/bin/bash"]
     for item, key in kwargs.items():
 
@@ -159,7 +152,7 @@ def write_slurm_config(
     config_content.append(export_cmd)
     config_content.append(infer_cmd)
     config_content.append("")
-    
+
     with open(filename, "w") as f:
         f.write("\n".join(config_content))
 
@@ -208,7 +201,7 @@ def write_infer_config(
     dim_split:list,
     sample_rate=2048,
     inference_sampling_rate=1,
-): 
+):
 
     job_dir.mkdir(parents=True, exist_ok=True)
     config_file = job_dir / "config.yaml"
@@ -219,11 +212,11 @@ def write_infer_config(
                 continue
 
             f.write(f"{key}: {value}\n")  # Write each key-value pair
-    
+
     return config_file
 
 def submit_condor_job(sub_file:Path):
-    
+
     result = subprocess.run(
         ["condor_submit", sub_file], 
         cwd=sub_file.parent,

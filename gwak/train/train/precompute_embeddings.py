@@ -114,9 +114,9 @@ if __name__=='__main__':
     psd_length = config['data']['init_args']['psd_length']
     fduration = config['data']['init_args']['fduration']
     fftlength = config['data']['init_args']['fftlength']
-    batch_size = 2048
+    batch_size = config['data']['init_args']['batch_size']
     batches_per_epoch = 2000000
-    num_workers = config['data']['init_args']['num_workers']
+    num_workers = 0
     data_saving_file = config['data']['init_args']['data_saving_file']
 
     duration = fduration + kernel_length
@@ -181,7 +181,6 @@ if __name__=='__main__':
         waveforms = [None, None]
         extra_kwargs = [None, None]
 
-    all_processed = []
     all_labels = []
     all_embeddings = []
     all_correlations = []
@@ -271,7 +270,6 @@ if __name__=='__main__':
                     del clean_batch, glitch_batch
                     torch.cuda.empty_cache()
                     continue
-                all_processed.append(processed.cpu().detach().numpy())
                 embeddings = embed_model(processed).cpu().detach().numpy()
                 if args.correlations:
                     correlations = frequency_cos_similarity(
@@ -289,28 +287,25 @@ if __name__=='__main__':
 
 
     # ---------- save outputs ----------
-    all_processed = np.concatenate(all_processed, axis=0) if len(all_processed) else np.empty((0,), dtype=np.int32)
     all_labels = np.concatenate(all_labels, axis=0) if len(all_labels) else np.empty((0,), dtype=np.int32)
     all_embeddings = np.concatenate(all_embeddings, axis=0) if len(all_embeddings) else np.empty((0, 0), dtype=np.float32)
     if args.correlations:
         all_correlations = np.concatenate(all_correlations, axis=0) if len(all_correlations) else np.empty((0, 1), dtype=np.float32)
     saving_dir = Path(args.labels).parent
     saving_dir.mkdir(parents=True, exist_ok=True)
-    np.save(saving_dir / "processed_strain.py", all_processed)
-    np.save(f'{args.labels}', all_labels)
-    np.save(f'{args.labels}', all_labels)
+    np.save(args.labels, all_labels)
     print('Labels shape', all_labels.shape)
 
-    np.save(f'{args.embeddings}', all_embeddings)
+    np.save(args.embeddings, all_embeddings)
     print('Embeddings shape', all_embeddings.shape)
 
     if args.correlations:
-        np.save(f'{args.correlations}', all_correlations)
+        np.save(args.correlations, all_correlations)
         print('Correlation shape', all_correlations.shape)
 
     means = np.mean(all_embeddings, axis=0) if all_embeddings.size else np.array([])
     stds = np.std(all_embeddings, axis=0) if all_embeddings.size else np.array([])
     if args.means is not None:
-        np.save(f'{args.means}', means)
+        np.save(args.means, means)
     if args.stds is not None:
-        np.save(f'{args.stds}', stds)
+        np.save(args.stds, stds)
